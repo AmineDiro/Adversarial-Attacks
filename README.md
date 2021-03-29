@@ -10,3 +10,5 @@ Implementation of adversarial attack on different deep NN classifiers, the attac
 * [Intriguing properties of neural networks](https://arxiv.org/abs/1312.6199).
 
  
+ # To do 
+  - Implementer les base 
