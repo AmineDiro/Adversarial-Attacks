@@ -20,6 +20,12 @@ Perturbations against Deep Neural Networks](https://arxiv.org/pdf/1511.04508.pdf
  
 ## Paper structure
 - Introduction to adversarial exemples : Robustness of neural networks
+    - Understanding Adversarial Examples : An adversarial example is an instance with small, intentional feature perturbations that cause a machine learning model to make a false prediction. Adversarial examples are counterfactual examples with the aim to deceive the model.
+    - From FGSM paper Adversarial examples aren’t a product of overfitting, but rather of high-dimensional input and the internal linearity of modern models => FGSM paper
+    - Manifold hypothesis : 
+        * there is only a relatively small region of a very high dimensional space in which inputs exist
+        * property of adversarial examples is transferability :  adversarial examples generated for one model will typically work on another. 
+
 - Explain white vs black box attacks
     * white box: Atatcker has full access to model, architecture, inputs, outputs, and weights
     * black box : Attacker only has access to the inputs and outputs of the model
