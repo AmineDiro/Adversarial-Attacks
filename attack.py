@@ -12,7 +12,60 @@ import torch.nn.functional as F
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
+from LBFGSAttack import LBFGSAttack
 
+
+############### Vanilla Attack  ##################
+
+def target_adversarial(model,x_target, device, n=0,epochs = 200,eta=0.5, lmd=0.05):
+    """
+   Function to generate an adversarial exemple based on a model, a target image and a label. 
+   We need to have access to the gradient of the parameters in the model. 
+    ...
+
+    Parameters
+    ----------
+    model : torch model
+    x_target : torch tensor
+        the name of the animal
+    n : int
+        the sound that the animal makes
+    device : torch.device
+        the number of legs the animal has (default 4)
+    epochs : int
+        the number of epochs for gradient descent
+    eta : float
+        learning rate for gradient descent
+    lmd : float 
+        hyperparameter for 
+    
+    Returns
+    -------
+    x : torch tensor
+        adversarial exemple
+    """
+    # Set the goal output
+    goal = torch.tensor([n]).to(device)
+    #
+    x = torch.randn(x_target.size()).to(device)
+    x.requires_grad = True
+    
+    # Gradient descent on the input
+    for epoch in range(epochs):
+        output = model(x)
+        criterion = nn.CrossEntropyLoss()
+        loss = criterion(output, goal)
+        model.zero_grad()
+        # Backward pass
+        loss.backward()
+        # Get grad
+        d = x.grad.data
+        # The SGD update on x
+        with torch.no_grad():
+            # we don't need to update model params
+            x -= eta * (d + lmd * (x - x_target)) 
+            x.grad = None
+    return x
 
 ############### Implementing FGSM ############### 
 
@@ -68,6 +121,7 @@ def generate_adv_imagenet(model,device,testloader,epsilon):
 def test_fgsm_mnist(model, device, test_loader, epsilon):
     correct = 0
     adv_examples = []
+    proba_adv = np.zeros(1000)
     # Loop over  test set
     loop = tqdm(test_loader,desc='Iteration for epsilon = {}'.format(epsilon))
     
@@ -102,7 +156,8 @@ def test_fgsm_mnist(model, device, test_loader, epsilon):
         # Predict perturbed image class
         output = model(perturbed_data)
         final_pred = output.max(1, keepdim=True)[1] # get the index of the max log-probability
-        
+        proba_adv[i]=torch.exp(output).max().item()*100
+
         if final_pred.item() == target.item(): # Nothing changed ( model has good defense)
             correct += 1
         else:
@@ -112,7 +167,7 @@ def test_fgsm_mnist(model, device, test_loader, epsilon):
                 adv_examples.append((init_pred.item(), final_pred.item(), adv_ex))
 
     final_acc = correct / 1000
-    return final_acc, adv_examples
+    return final_acc, adv_examples, proba_adv
 
 def test_fgsm_mnist_binary(model, device, test_loader, epsilon,threshold=0.5):
     correct = 0
@@ -161,72 +216,26 @@ def test_fgsm_mnist_binary(model, device, test_loader, epsilon,threshold=0.5):
     final_acc = correct / 1000
     return final_acc, adv_examples
 
+
 ###############  Implementing L-BFGS  ##################
 
-def target_adversarial(model,x_target, device, n=0,epochs = 200,eta=0.5, lmd=0.05):
-    """
-   Function to generate an adversarial exemple based on a model, a target image and a label. 
-   We need to have access to the gradient of the parameters in the model. 
-    ...
 
-    Parameters
-    ----------
-    model : torch model
-    x_target : torch tensor
-        the name of the animal
-    n : int
-        the sound that the animal makes
-    device : torch.device
-        the number of legs the animal has (default 4)
-    epochs : int
-        the number of epochs for gradient descent
-    eta : float
-        learning rate for gradient descent
-    lmd : float 
-        hyperparameter for 
-    
-    Returns
-    -------
-    x : torch tensor
-        adversarial exemple
-    """
-    # Set the goal output
-    goal = torch.tensor([n]).to(device)
-    #
-    x = torch.randn(x_target.size()).to(device)
-    x.requires_grad = True
-    
-    # Gradient descent on the input
-    for epoch in range(epochs):
-        output = model(x)
-        criterion = nn.CrossEntropyLoss()
-        loss = criterion(output, goal)
-        model.zero_grad()
-        # Backward pass
-        loss.backward()
-        # Get grad
-        d = x.grad.data
-        # The SGD update on x
-        with torch.no_grad():
-            # we don't need to update model params
-            x -= eta * (d + lmd * (x - x_target)) 
-            x.grad = None
-    return x
-
-def test_LBFGS_mnist(model,device,testloader,lmd):
+def test_LBFGS_mnist(model,device,testloader,nb_exemples=1000):
     correct = 0
     adv_examples = []
-    loop = tqdm(testloader,desc='Lambda = {}'.format(lmd))
+    proba_adv = np.zeros(nb_exemples)
+    proba_orig = np.zeros(nb_exemples)
+    loop = tqdm(testloader)
+    lbfgs = LBFGSAttack(model,device)
     for i, (data, target) in enumerate(loop):
-        if i == 1000 :
+        if i == nb_exemples :
             break
         data = data.to(device)
         target = target.to(target)
-        data.requires_grad = True
-        
         # Get initial label
         output = model(data)          
         init_pred = output.max(1, keepdim=True)[1] #index of the max log-probability
+        proba_orig[i] = torch.exp(output).max().item()*100
         if init_pred.item() != target.item():
             # Skip bad exemples in testdata
             print('bad exemple')
@@ -234,10 +243,15 @@ def test_LBFGS_mnist(model,device,testloader,lmd):
         n=torch.tensor(0)
         while n.item() == target.item():
             n = torch.randint(low=0,high=9,size=(1,))
-        # Generate Adversarial exemple
-        adv = target_adversarial(model,data,device,n,lmd=lmd)       
-        output = model(adv)
+        
+        # Generate Adversarial exemple using LBFGS
+        lbfgs._apply(data, target=0)
+        adv = lbfgs._adv 
+        output = lbfgs._output
+        # Get prediction
         final_pred = output.max(1, keepdim=True)[1]
+        # Get probability
+        proba_adv[i] = torch.exp(output).max().item()*100
         # If same label changed
         if final_pred.item() == target.item(): 
              correct += 1
@@ -246,8 +260,45 @@ def test_LBFGS_mnist(model,device,testloader,lmd):
                 adversary = adv.squeeze().detach().cpu().numpy()
                 original = data.squeeze().detach().cpu().numpy()
                 adv_examples.append((original, adversary, init_pred , final_pred))
-    final_acc = correct / 1000 # Normally float(len(testloader)) 
-    return final_acc, adv_examples
+    
+    final_acc = correct / nb_exemples # Normally float(len(testloader)) 
+    return final_acc, adv_examples, proba_orig,proba_adv
+
+# def test_LBFGS_mnist(model,device,testloader,lmd):
+#     correct = 0
+#     adv_examples = []
+#     loop = tqdm(testloader,desc='Lambda = {}'.format(lmd))
+#     for i, (data, target) in enumerate(loop):
+#         if i == 1000 :
+#             break
+#         data = data.to(device)
+#         target = target.to(target)
+#         data.requires_grad = True
+        
+#         # Get initial label
+#         output = model(data)          
+#         init_pred = output.max(1, keepdim=True)[1] #index of the max log-probability
+#         if init_pred.item() != target.item():
+#             # Skip bad exemples in testdata
+#             print('bad exemple')
+#             continue  
+#         n=torch.tensor(0)
+#         while n.item() == target.item():
+#             n = torch.randint(low=0,high=9,size=(1,))
+#         # Generate Adversarial exemple
+#         adv = target_adversarial(model,data,device,n,lmd=lmd)       
+#         output = model(adv)
+#         final_pred = output.max(1, keepdim=True)[1]
+#         # If same label changed
+#         if final_pred.item() == target.item(): 
+#              correct += 1
+#         else :
+#             if len(adv_examples) < 5:
+#                 adversary = adv.squeeze().detach().cpu().numpy()
+#                 original = data.squeeze().detach().cpu().numpy()
+#                 adv_examples.append((original, adversary, init_pred , final_pred))
+#     final_acc = correct / 1000 # Normally float(len(testloader)) 
+#     return final_acc, adv_examples
 
 def test_LBFGS_binary_mnist(model,device,testloader,lmd,threshold=0.5):
     correct = 0
@@ -290,8 +341,6 @@ def test_LBFGS_binary_mnist(model,device,testloader,lmd,threshold=0.5):
                 adv_examples.append((original, adversary, init_pred , final_pred))
     final_acc = correct / 1000
     return final_acc, adv_examples
-
-
 
 def validation(model, testloader, device):
     correct = 0

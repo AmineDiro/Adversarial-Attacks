@@ -5,10 +5,34 @@
 
 Implementation of adversarial attack on different deep NN classifiers, the attacks are base on the algorithms in the papers :
 
-* [Adversarial Attacks and Defences Competition](https://arxiv.org/pdf/1804.00097.pdf).
-* [Explaining and harnessing adversarial examples](https://arxiv.org/pdf/1412.6572v3.pdf).
-* [Intriguing properties of neural networks](https://arxiv.org/abs/1312.6199).
+**ATTACKS :**
+* LBFGS Attack : [Explaining and harnessing adversarial examples](https://arxiv.org/pdf/1412.6572v3.pdf).
+* FGSM : [Intriguing properties of neural networks](https://arxiv.org/abs/1312.6199).
+*  [Adversarial Attacks and Defences Competition](https://arxiv.org/pdf/1804.00097.pdf).
+
+
+**DEFENSES :**
+* Distilled neural network : [Distillation as a Defense to Adversarial
+Perturbations against Deep Neural Networks](https://arxiv.org/pdf/1511.04508.pdf)
+* FGSM Training ?
+* 
 
  
- # To do 
-  - Implementer les base 
+## Paper structure
+- Introduction to adversarial exemples : Robustness of neural networks
+- Explain white vs black box attacks
+    * white box: Atatcker has full access to model, architecture, inputs, outputs, and weights
+    * black box : Attacker only has access to the inputs and outputs of the model
+- Implementation  :  defenses vs attacks
+    * Attacks : 
+        * Vanilla SGD attack
+        * LBFGS attack
+        * FGSM Attack
+        * ATN ?? 
+        * Get exemples and accuracy and mean proba results
+    * Defense : 
+        * Binary threashold : results
+        * Neural network distillation
+- Tests : 
+    - Generalization across different models
+    - Robustess of attacks and defenses
