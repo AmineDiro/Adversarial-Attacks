@@ -63,7 +63,7 @@ class LBFGSAttack():
     
         # cross_entropy
         output = self.model(adv)
-        ce = F.cross_entropy(output, self.target, reduction='none')
+        ce = F.nll_loss(output, self.target)
         # L2 distance
         d =  torch.sum((self.data - adv) ** 2)
         
