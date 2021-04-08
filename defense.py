@@ -26,15 +26,15 @@ def validation(model, testloader, device, T=4):
     return accuracy
 
 
-def fit(model, device, criterion, optimizer, train_loader, val_loader, T=1, epochs=10, mode='log'):
-    train_loss = []
+def fit(model, device, criterion, optimizer, train_loader, val_loader=None, T=1, epochs=10):
+    train_loss =0
+    correct =0
+    total=0
+    model.train()
     for epoch in range(epochs):
-        loss_per_epoch = 0
         for data, label in tqdm(train_loader):
             data, label = data.to(device), label.to(device)
             output = model(data)
-            if mode != 'log':
-                output = F.log_softmax(output/T, dim=1)
             # calculating loss on the output
             loss = criterion(output, label)
             optimizer.zero_grad()
@@ -42,12 +42,19 @@ def fit(model, device, criterion, optimizer, train_loader, val_loader, T=1, epoc
             loss.backward()
             # update weights
             optimizer.step()
-            loss_per_epoch += loss.item()
-        print("Epoch: {} Loss: {} ".format(
-            epoch+1, loss_per_epoch/len(train_loader)))
-        train_loss.append(loss_per_epoch/len(train_loader))
-        acc = validation(model, val_loader, device)
-        print("Epoch: {} Accuracy: {} ".format(epoch+1, acc))
+            final_pred = output.max(1, keepdim=True)[1].squeeze()
+            correct += (final_pred == label).sum().item()
+            train_loss += loss.item() * label.size(0)
+            total += label.size(0)
+
+        print('Epoch :{} Loss: {} Acc : {}'.format(
+            epoch, train_loss/total, correct/total))
+            
+        if val_loader is not None : 
+            acc = validation(model, val_loader, device)
+            print("Epoch: {} Val accuracy: {} ".format(epoch+1, acc))  
+        #Save after each epoch
+        torch.save(model.state_dict(), "weights/base_training.pt")          
     return train_loss
 
 # def fit(model, device, optimizer, scheduler, criterion, train_loader, val_loader, Temp=40, epochs=10):
@@ -136,6 +143,7 @@ def adversarial_fit(model, device, optimizer, train_loader, val_loader=None, eps
         print('Epoch :{} Loss: {} Acc : {}'.format(
             epoch, train_loss/total, correct/total))
     # TODO : Add val loss and val accuracy
+    torch.save(model.state_dict(), "weights/adv_training.pt")
     return train_loss
 
 
@@ -148,7 +156,7 @@ def adversarial_fit_normal(model, device, optimizer, train_loader, val_loader=No
         loss_per_epoch = 0
         for data, label in tqdm(train_loader):
             X, y = data.to(device), label.to(device)
-            perturbed_data = fgsm_attack(model, X, y, epsilon)
+            perturbed_data = fgsm_attack(model, device, X, y, epsilon)
             output = model(perturbed_data)
             loss = (1-alpha)*F.cross_entropy(output, y) + \
                 alpha*F.cross_entropy(model(X), y)
@@ -162,11 +170,11 @@ def adversarial_fit_normal(model, device, optimizer, train_loader, val_loader=No
         print('Epoch :{} Loss: {} Acc : {}'.format(
             epoch, train_loss/total, correct/total))
     # TODO : Add val loss and val accuracy
+    torch.save(model.state_dict(), "weights/adv_training.pt")
     return train_loss
 
 
-
-def adversarial_fit(model, device, optimizer, train_loader, val_loader=None, epsilon=0.3, alpha=0.5,  epochs=10):
+def adversarial_fit_random(model, device, optimizer, train_loader, val_loader=None, epsilon=0.3, alpha=0.5,  epochs=10):
     print("Fitting the model with adversarial training...")
     train_loss = 0
     correct = 0
@@ -175,7 +183,8 @@ def adversarial_fit(model, device, optimizer, train_loader, val_loader=None, eps
         loss_per_epoch = 0
         for data, label in tqdm(train_loader):
             X, y = data.to(device), label.to(device)
-            perturbed_data = random_fgsm_attack(model, device, X, y, epsilon,alpha)
+            perturbed_data = random_fgsm_attack(
+                model, device, X, y, epsilon, alpha)
             output = model(perturbed_data)
             loss = (1-alpha)*F.cross_entropy(output, y) + \
                 alpha*F.cross_entropy(model(X), y)
@@ -186,6 +195,7 @@ def adversarial_fit(model, device, optimizer, train_loader, val_loader=None, eps
             correct += (final_pred == y).sum().item()
             train_loss += loss.item() * y.size(0)
             total += y.size(0)
+        
         print('Epoch :{} Loss: {} Acc : {}'.format(
             epoch, train_loss/total, correct/total))
     # TODO : Add val loss and val accuracy

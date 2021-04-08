@@ -129,17 +129,28 @@ def test_vanilla_mnist(model, device, testloader, lmd, mode="log", T=1):
 #     perturbed_image = torch.clamp(perturbed_image, 0, 1)
 #     return perturbed_image
 
-# def normal_fgsm_attack(model, data, target, epsilon):
-#     data_copy = data.detach().clone()
-#     data_copy.requires_grad =True
-#     output = model(data_copy)
+
+# def fgsm_attack(model, device, data, target, epsilon):
+#     delta = torch.zeros_like(data, requires_grad=True).to(device)
+#     output = model(data + delta)
 #     loss = F.cross_entropy(output, target)
 #     loss.backward()
-#     data_grad = data_copy.grad.detach()
-#     sign_data_grad = data_grad.sign()
-#     perturbed_image = data + epsilon*sign_data_grad
-#     perturbed_image = torch.clamp(perturbed_image, 0, 1)
-#     return perturbed_image
+#     grad = delta.grad.detach()
+#     delta.data = epsilon * torch.sign(grad)
+#     perturbed_data = torch.clamp(data + delta.detach(), 0, 1)
+#     return delta.detach()
+
+def fgsm_attack(model, device, data, target, epsilon):
+    data_copy = data.detach().clone()
+    data_copy.requires_grad =True
+    output = model(data_copy)
+    loss = F.cross_entropy(output, target)
+    loss.backward()
+    data_grad = data_copy.grad.detach()
+    sign_data_grad = data_grad.sign()
+    perturbed_image = data + epsilon*sign_data_grad
+    perturbed_image = torch.clamp(perturbed_image, 0, 1)
+    return perturbed_image
 
 def random_fgsm_attack(model,device, data, target, epsilon, alpha):
     rand_perturb = torch.FloatTensor(data.shape).uniform_(
@@ -159,15 +170,6 @@ def random_fgsm_attack(model,device, data, target, epsilon, alpha):
     x = torch.max(torch.min(x, max_x), min_x)
     return x.clamp_(0,1)
 
-def fgsm_attack(model, device, data, target, epsilon):
-    delta = torch.zeros_like(data, requires_grad=True).to(device)
-    output = model(data + delta)
-    loss = F.cross_entropy(output, target)
-    loss.backward()
-    grad = delta.grad.detach()
-    delta.data = epsilon * torch.sign(grad)
-    perturbed_data = torch.clamp(data + delta.detach(), 0, 1)
-    return delta.detach()
 
 def test_fgsm_mnist(model, device, test_loader, epsilon, mode='log', T=1):
     correct = 0
@@ -190,7 +192,7 @@ def test_fgsm_mnist(model, device, test_loader, epsilon, mode='log', T=1):
         init_pred = output.max(1, keepdim=True)[1]
         #  FGSM Attack : TODO : class FGSM attack
         # Collect datagrad
-        perturbed_data = fgsm_attack(model, data, target, epsilon)
+        perturbed_data = fgsm_attack(model,device, data, target, epsilon)
         # Predict perturbed image class
         output = model(perturbed_data)
         # get the index of the max log-probability
@@ -204,7 +206,7 @@ def test_fgsm_mnist(model, device, test_loader, epsilon, mode='log', T=1):
         if len(adv_examples) < 5:
             adv_ex = perturbed_data[0].squeeze().detach().cpu().numpy()
             adv_examples.append(
-                (init_pred.numpy(), final_pred.numpy(), adv_ex))
+                (init_pred.cpu().numpy(), final_pred.cpu().numpy(), adv_ex))
     final_acc = correct / total
     print("Epsilon {} Accuracy: {} ".format(epsilon, final_acc))
     return final_acc, adv_examples, proba_adv
