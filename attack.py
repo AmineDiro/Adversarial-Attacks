@@ -120,15 +120,54 @@ def test_vanilla_mnist(model, device, testloader, lmd, mode="log", T=1):
 ############### Implementing FGSM ############### 
 
 
-def fgsm_attack(image, epsilon, data_grad):
-    #  Sign of the data gradient
-    sign_data_grad = data_grad.sign()
-    # Add grad *epsilon to pixel of the input image
-    perturbed_image = image + epsilon*sign_data_grad
-    # Clip to  [0,1] range
-    perturbed_image = torch.clamp(perturbed_image, 0, 1)
-    return perturbed_image
+# def fgsm_attack(image, epsilon, data_grad):
+#     #  Sign of the data gradient
+#     sign_data_grad = data_grad.sign()
+#     # Add grad *epsilon to pixel of the input image
+#     perturbed_image = image + epsilon*sign_data_grad
+#     # Clip to  [0,1] range
+#     perturbed_image = torch.clamp(perturbed_image, 0, 1)
+#     return perturbed_image
 
+# def normal_fgsm_attack(model, data, target, epsilon):
+#     data_copy = data.detach().clone()
+#     data_copy.requires_grad =True
+#     output = model(data_copy)
+#     loss = F.cross_entropy(output, target)
+#     loss.backward()
+#     data_grad = data_copy.grad.detach()
+#     sign_data_grad = data_grad.sign()
+#     perturbed_image = data + epsilon*sign_data_grad
+#     perturbed_image = torch.clamp(perturbed_image, 0, 1)
+#     return perturbed_image
+
+def random_fgsm_attack(model,device, data, target, epsilon, alpha):
+    rand_perturb = torch.FloatTensor(data.shape).uniform_(
+                -epsilon, epsilon).to(device)
+    x = data + rand_perturb
+    x.clamp_(0,1)
+    x.requires_grad = True
+    model.eval()
+    outputs = model(x)
+    loss = F.cross_entropy(outputs, target)
+    loss.backward()
+    grad = x.grad.detach()
+    x.data += alpha * torch.sign(grad.data) 
+    # Stay in L-inf of epsilon
+    max_x = data + epsilon
+    min_x = data - epsilon
+    x = torch.max(torch.min(x, max_x), min_x)
+    return x.clamp_(0,1)
+
+def fgsm_attack(model, device, data, target, epsilon):
+    delta = torch.zeros_like(data, requires_grad=True).to(device)
+    output = model(data + delta)
+    loss = F.cross_entropy(output, target)
+    loss.backward()
+    grad = delta.grad.detach()
+    delta.data = epsilon * torch.sign(grad)
+    perturbed_data = torch.clamp(data + delta.detach(), 0, 1)
+    return delta.detach()
 
 def test_fgsm_mnist(model, device, test_loader, epsilon, mode='log', T=1):
     correct = 0
@@ -145,39 +184,17 @@ def test_fgsm_mnist(model, device, test_loader, epsilon, mode='log', T=1):
         data, target = data.to(device), target.to(device)
         # requires_grad attribute of Data tensor.
         #  !/! Important for Attack
-        data.requires_grad = True
-
         output = model(data)
         # index of the max log-probability
-        if mode != 'log':
-            output = F.log_softmax(output / T, dim=1)
-
+        output = F.softmax(output / T, dim=1)
         init_pred = output.max(1, keepdim=True)[1]
-
-        # Suppr for batch
-        # if init_pred.item() != target.item():
-        #     # Skip this exemple
-        #     # print('skipped')
-        #     continue
-
-        # Calculate negative log likelihood loss used
-        loss = F.nll_loss(output, target)
-        model.zero_grad()
-        # data.grad.data.zero_()
-        # Backward pass
-        loss.backward()
-        #  FGSM Attack
+        #  FGSM Attack : TODO : class FGSM attack
         # Collect datagrad
-        data_grad = data.grad.data
-        perturbed_data = fgsm_attack(data, epsilon, data_grad)
-
+        perturbed_data = fgsm_attack(model, data, target, epsilon)
         # Predict perturbed image class
         output = model(perturbed_data)
         # get the index of the max log-probability
-        # Temp = 1 for eval
-        if mode != 'log':
-            output = F.softmax(output, dim=1)
-
+        output = F.softmax(output/T, dim=1)
         proba_adv[i] = output.max().item()*100
         final_pred = output.max(1, keepdim=True)[1].squeeze()
 
