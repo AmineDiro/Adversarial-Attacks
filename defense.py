@@ -15,6 +15,7 @@ def validation(model, testloader, device, T=4):
     with torch.no_grad():
         for inputs, labels in tqdm(testloader):
             inputs = inputs.to(device)
+            labels = labels.to(device)
             outputs = model(inputs)
             outputs = F.log_softmax(outputs / T, dim=1)
             _, predicted = torch.max(outputs.data, 1)

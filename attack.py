@@ -17,7 +17,7 @@ from LBFGSAttack import LBFGSAttack
 
 ############### Vanilla Attack  ##################
 
-def target_adversarial(model, x_target, device, n=0, epochs=100, eta=0.5, lmd=0.05, mode="log", T=1):
+def target_adversarial(model, x_target, device, n=0, epochs=100, eta=0.5, lmd=0.05, mode='log', T=1):
     """
    Function to generate an adversarial exemple based on a model, a target image and a label. 
    We need to have access to the gradient of the parameters in the model. 
@@ -49,7 +49,7 @@ def target_adversarial(model, x_target, device, n=0, epochs=100, eta=0.5, lmd=0.
     #
     x = torch.randn(x_target.size()).to(device)
     x.requires_grad = True
-
+    model.eval()
     # Gradient descent on the input
     for epoch in range(epochs):
         output = model(x)
@@ -62,11 +62,13 @@ def target_adversarial(model, x_target, device, n=0, epochs=100, eta=0.5, lmd=0.
         loss.backward()
         # Get grad
         d = x.grad.data
+        # print('gradient',torch.norm(d))
         # The SGD update on x
         with torch.no_grad():
             # we don't need to update model params
             x -= eta * (d + lmd * (x - x_target))
             x.grad = None
+
     return x
 
 
@@ -79,22 +81,23 @@ def test_vanilla_mnist(model, device, testloader, lmd, mode="log", T=1):
         if i == 1000:
             break
         data = data.to(device)
-        target = target.to(target)
+        # Generate target exemple where target is  different
+        label_adv = torch.randint(0, 9, size=[target.size(0)])
+        while (label_adv == target).sum().item() > 0:
+            label_adv = torch.randint(0, 9, size=[target.size(0)])
+        # Send targets to device
+        label_adv = label_adv.to(device)
+        target = target.to(device)
+
         data.requires_grad = True
         output = model(data)
         # Predict class of original input
         # index of the max log-probability
         init_pred = output.max(1, keepdim=True)[1]
 
-        # Generate target exemple where target is  different
-        label_adv = torch.randint(0, 9, size=[target.size(0)])
-        while (label_adv == target).sum().item() > 0:
-            label_adv = torch.randint(0, 9, size=[target.size(0)])
-
         # Generate Adversarial exemple
         adv = target_adversarial(
             model, data, device, n=label_adv, lmd=lmd, mode=mode, T=T)
-
         # Get model output of DNN
         output = model(adv)
         if mode != 'log':
@@ -104,7 +107,6 @@ def test_vanilla_mnist(model, device, testloader, lmd, mode="log", T=1):
         # If same label changed
         correct += (final_pred == target).sum().item()
         total += target.size(0)
-
         if len(adv_examples) < 5:
             adversary = adv.squeeze().detach().cpu().numpy()
             original = data.squeeze().detach().cpu().numpy()
