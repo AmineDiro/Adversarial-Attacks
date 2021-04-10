@@ -12,12 +12,14 @@ import torch.nn.functional as F
 import numpy as np
 import torchvision
 from torchvision import datasets, models, transforms
-from LBFGSAttack import LBFGSAttack
+from LBFGS import LBFGSAttack
+from FGSM import FGSMAttack
+from VanillaGradient import VanillaGradientAttack
 
 
 ############### Vanilla Attack  ##################
 
-def target_adversarial(model, x_target, device, n=0, epochs=100, eta=0.5, lmd=0.05, mode='log', T=1):
+def target_adversarial(model, x_target, device, n=0, epochs=100, eta=0.5, lmd=0.05, T=1):
     """
    Function to generate an adversarial exemple based on a model, a target image and a label. 
    We need to have access to the gradient of the parameters in the model. 
@@ -54,9 +56,7 @@ def target_adversarial(model, x_target, device, n=0, epochs=100, eta=0.5, lmd=0.
     for epoch in range(epochs):
         output = model(x)
         # No need for log softmax
-        if mode != 'log':
-            output = F.log_softmax(output/T, dim=1)
-        loss = F.nll_loss(output, n)
+        loss = F.cross_entropy(output/T, n)
         model.zero_grad()
         # Backward pass
         loss.backward()
@@ -72,7 +72,7 @@ def target_adversarial(model, x_target, device, n=0, epochs=100, eta=0.5, lmd=0.
     return x
 
 
-def test_vanilla_mnist(model, device, testloader, lmd, mode="log", T=1):
+def test_vanilla_mnist(model, device, testloader, lmd,  T=1):
     correct = 0
     total = 0
     adv_examples = []
@@ -97,12 +97,10 @@ def test_vanilla_mnist(model, device, testloader, lmd, mode="log", T=1):
 
         # Generate Adversarial exemple
         adv = target_adversarial(
-            model, data, device, n=label_adv, lmd=lmd, mode=mode, T=T)
+            model, data, device, n=label_adv, lmd=lmd, T=T)
         # Get model output of DNN
         output = model(adv)
-        if mode != 'log':
-            # Output T = 1
-            output = F.softmax(output, dim=1)
+        proba_adv = F.softmax(output/T, dim=1)
         final_pred = output.max(1, keepdim=True)[1].squeeze()
         # If same label changed
         correct += (final_pred == target).sum().item()
@@ -119,59 +117,7 @@ def test_vanilla_mnist(model, device, testloader, lmd, mode="log", T=1):
 
 ############### Implementing FGSM ############### 
 
-
-# def fgsm_attack(image, epsilon, data_grad):
-#     #  Sign of the data gradient
-#     sign_data_grad = data_grad.sign()
-#     # Add grad *epsilon to pixel of the input image
-#     perturbed_image = image + epsilon*sign_data_grad
-#     # Clip to  [0,1] range
-#     perturbed_image = torch.clamp(perturbed_image, 0, 1)
-#     return perturbed_image
-
-
-# def fgsm_attack(model, device, data, target, epsilon):
-#     delta = torch.zeros_like(data, requires_grad=True).to(device)
-#     output = model(data + delta)
-#     loss = F.cross_entropy(output, target)
-#     loss.backward()
-#     grad = delta.grad.detach()
-#     delta.data = epsilon * torch.sign(grad)
-#     perturbed_data = torch.clamp(data + delta.detach(), 0, 1)
-#     return delta.detach()
-
-def fgsm_attack(model, device, data, target, epsilon):
-    data_copy = data.detach().clone()
-    data_copy.requires_grad =True
-    output = model(data_copy)
-    loss = F.cross_entropy(output, target)
-    loss.backward()
-    data_grad = data_copy.grad.detach()
-    sign_data_grad = data_grad.sign()
-    perturbed_image = data + epsilon*sign_data_grad
-    perturbed_image = torch.clamp(perturbed_image, 0, 1)
-    return perturbed_image
-
-def random_fgsm_attack(model,device, data, target, epsilon, alpha):
-    rand_perturb = torch.FloatTensor(data.shape).uniform_(
-                -epsilon, epsilon).to(device)
-    x = data + rand_perturb
-    x.clamp_(0,1)
-    x.requires_grad = True
-    model.eval()
-    outputs = model(x)
-    loss = F.cross_entropy(outputs, target)
-    loss.backward()
-    grad = x.grad.detach()
-    x.data += alpha * torch.sign(grad.data) 
-    # Stay in L-inf of epsilon
-    max_x = data + epsilon
-    min_x = data - epsilon
-    x = torch.max(torch.min(x, max_x), min_x)
-    return x.clamp_(0,1)
-
-
-def test_fgsm_mnist(model, device, test_loader, epsilon, mode='log', T=1):
+def test_fgsm_mnist(model, device, test_loader, epsilon,  T=1):
     correct = 0
     total = 0
     adv_examples = []
@@ -179,6 +125,7 @@ def test_fgsm_mnist(model, device, test_loader, epsilon, mode='log', T=1):
     # Loop over  test set
     loop = tqdm(test_loader, desc='Iteration for epsilon = {}'.format(epsilon))
     model.eval()
+    fgsm_attack = FGSMAttack(model, device, epsilon)
     for i, (data, target) in enumerate(loop):
         if i == len(test_loader):
             break
@@ -192,7 +139,7 @@ def test_fgsm_mnist(model, device, test_loader, epsilon, mode='log', T=1):
         init_pred = output.max(1, keepdim=True)[1]
         #  FGSM Attack : TODO : class FGSM attack
         # Collect datagrad
-        perturbed_data = fgsm_attack(model,device, data, target, epsilon)
+        perturbed_data = fgsm_attack(data, target)
         # Predict perturbed image class
         output = model(perturbed_data)
         # get the index of the max log-probability
@@ -217,7 +164,8 @@ def test_fgsm_mnist_binary(model, device, test_loader, epsilon, threshold=0.5):
     adv_examples = []
     # Loop over  test set
     loop = tqdm(test_loader, desc='Iteration for epsilon = {}'.format(epsilon))
-
+    fgsm_attack = FGSMAttack(model, device, epsilon)
+    model.eval()
     for i, (data, target) in enumerate(loop):
         if i == 1000:
             break
@@ -228,23 +176,22 @@ def test_fgsm_mnist_binary(model, device, test_loader, epsilon, threshold=0.5):
         data.requires_grad = True
         data_binary = (data > threshold)*1  #  Non-differentiable operation
         output = model(data_binary.to(torch.float32))
-        output = model(data)
         # index of the max log-probability
         init_pred = output.max(1, keepdim=True)[1]
         if init_pred.item() != target.item():
             # Skip this exemple
             continue
         # Calculate negative log likelihood loss used
-        loss = F.nll_loss(output, target)
+        output = model(data)
+        loss = F.cross_entropy(output, target)
         model.zero_grad()
-
         # Backward pass
         loss.backward()
 
         #  FGSM Attack
         # Collect datagrad
         data_grad = data.grad.data
-        perturbed_data = fgsm_attack(data, epsilon, data_grad)
+        perturbed_data = fgsm_attack(data, target)
         # binary threshold data
         adv_binary = ((perturbed_data > threshold)*1).to(torch.float32)
         output = model(adv_binary)
@@ -262,13 +209,13 @@ def test_fgsm_mnist_binary(model, device, test_loader, epsilon, threshold=0.5):
     return final_acc, adv_examples
 
 
-def test_fgsm_mnist_distilled(model, distilled_model, device, test_loader, epsilon, mode='log', T=100):
+def test_fgsm_mnist_distilled(model, distilled_model, device, test_loader, epsilon, T=500):
     correct = 0
     adv_examples = []
     proba_adv = np.zeros(len(test_loader))
     # Loop over  test set
     loop = tqdm(test_loader, desc='Iteration for epsilon = {}'.format(epsilon))
-
+    fgsm_attack = FGSMAttack(distilled_model, device, epsilon)
     for i, (data, target) in enumerate(loop):
         if i == len(test_loader):
             break
@@ -280,8 +227,7 @@ def test_fgsm_mnist_distilled(model, distilled_model, device, test_loader, epsil
 
         output = model(data)
 
-        if mode != 'log':
-            output = F.log_softmax(output / T, dim=1)
+        output = F.log_softmax(output / T, dim=1)
         # index of the max log-probability
         init_pred = output.max(1, keepdim=True)[1]
 
@@ -299,7 +245,7 @@ def test_fgsm_mnist_distilled(model, distilled_model, device, test_loader, epsil
         #  FGSM Attack
         # Collect datagrad
         data_grad = data.grad.data
-        perturbed_data = fgsm_attack(data, epsilon, data_grad)
+        perturbed_data = fgsm_attack(distilled_model, target)
 
         # Predict perturbed image class
         output = distilled_model(perturbed_data)
@@ -369,7 +315,7 @@ def generate_adv_imagenet(model, device, testloader, epsilon):
 
 ###############  Implementing L-BFGS  ##################
 
-def test_LBFGS_mnist(model, device, testloader, nb_exemples=1000, T=1, mode='log'):
+def test_LBFGS_mnist(model, device, testloader, nb_exemples=1000, T=1):
     correct = 0
     adv_examples = []
     proba_adv = np.zeros(nb_exemples)
@@ -383,8 +329,7 @@ def test_LBFGS_mnist(model, device, testloader, nb_exemples=1000, T=1, mode='log
         target = target.to(target)
         # Get initial label
         output = model(data)
-        if mode != 'log':
-            output = F.log_softmax(output / T, dim=1)
+        output = F.log_softmax(output / T, dim=1)
         # index of the max log-probability
         init_pred = output.max(1, keepdim=True)[1]
         proba_orig[i] = torch.exp(output).max().item()*100
@@ -395,17 +340,13 @@ def test_LBFGS_mnist(model, device, testloader, nb_exemples=1000, T=1, mode='log
         while n.item() == target.item():
             n = torch.randint(low=0, high=9, size=(1,))
 
-        # Generate Adversarial exemple using LBFGS
-        lbfgs._apply(data, target=0)
+        # TODO : test Generate Adversarial exemple using LBFGS
+        lbfgs(data, target=torch.randint(low=0, high=9, size=(1,)))
         adv = lbfgs._adv
         output = lbfgs._output
-        # Get prediction
-        if mode != 'log':
-            output = F.log_softmax(output / T, dim=1)
-
+        proba_adv[i] = F.softmax(output / T, dim=1).max().item()*100
         final_pred = output.max(1, keepdim=True)[1]
         # Get probability
-        proba_adv[i] = torch.exp(output).max().item()*100
         # If same label changed
         if final_pred.item() == target.item():
             correct += 1
@@ -463,17 +404,3 @@ def test_LBFGS_binary_mnist(model, device, testloader, lmd, threshold=0.5):
                     (original, adversary, init_pred, final_pred))
     final_acc = correct / 1000
     return final_acc, adv_examples
-
-
-#  Utils
-def validation(model, testloader, device):
-    correct = 0
-    model.eval()
-    for inputs, label in tqdm(testloader):
-        inputs = inputs.to(device)
-        output = model(inputs)
-        final_pred = output.max(1, keepdim=True)[1]
-        if final_pred.item() == label.item():
-            correct += 1
-    accuracy = correct / float(len(testloader))
-    return accuracy

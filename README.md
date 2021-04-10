@@ -42,3 +42,9 @@ Perturbations against Deep Neural Networks](https://arxiv.org/pdf/1511.04508.pdf
 - Tests : 
     - Generalization across different models
     - Robustess of attacks and defenses
+
+## TODO : 
+* Refactor:
+    - Vanillagradient into class
+    - Tester class for attacks
+    

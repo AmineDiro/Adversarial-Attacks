@@ -20,13 +20,13 @@ class LBFGSAttack():
         self.bounds = 0 , 1
         self._output = None
 
-    def _apply(self, data,target, epsilon=0.01, steps=10):
+    def __call__(self, data,target, epsilon=0.01, steps=10):
         self.data = data.to(self.device)
         self.target = torch.tensor([target]).to(self.device) 
         # finding initial value for c        
         c = epsilon
         x0 = self.data.clone().cpu().numpy().flatten().astype(float)
-
+        # Line search init
         for i in range(30):
             c = 2 * c
             # print('c={}'.format(c))
@@ -35,14 +35,13 @@ class LBFGSAttack():
                 # print('Successful')
                 break
         if not is_adversary:
-            # logging.info('Failed to init C')
+            # logging.info('Failed to init C ')
             return self._adv
         
         # binary search c
         c_low = 0
         c_high = c
         while c_high - c_low >= epsilon:
-            # print('c_high={}, c_low={}, diff={}, epsilon={}'.format(c_high, c_low, c_high - c_low, epsilon))
             c_half = (c_low + c_high) / 2
             is_adversary = self._lbfgsb(x0, c_half, steps)
             if is_adversary:
@@ -63,7 +62,7 @@ class LBFGSAttack():
     
         # cross_entropy
         output = self.model(adv)
-        ce = F.nll_loss(output, self.target)
+        ce = F.cross_entropy(output, self.target)
         # L2 distance
         d =  torch.sum((self.data - adv) ** 2)
         

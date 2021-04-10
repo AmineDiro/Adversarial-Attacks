@@ -5,7 +5,6 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 import numpy as np
 import logging
-from scipy.optimize import fmin_l_bfgs_b
 
 
 class FGSMAttack():
