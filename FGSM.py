@@ -1,0 +1,58 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torchvision import datasets, transforms
+import numpy as np
+import logging
+from scipy.optimize import fmin_l_bfgs_b
+
+
+class FGSMAttack():
+    """
+    Class LBFGS attack L-BFGS-B to minimize the cross-entropy and the distance between the
+    original and the adversary.
+    """
+
+    def __init__(self, model, device, epsilon, random=False, alpha=None):
+        self.model=model
+        self.device=device
+        self.epsilon=epsilon
+        self.random = random
+        if random :
+            if alpha is None :
+                raise ValueError("Need an alpha value for random fgsm")
+            self.alpha = alpha
+        # To clamp between 0 and 1    
+        self.min=0
+        self.max=1
+
+    def __call__(self, data, target):
+        if not self.random:
+            data_copy = data.detach().clone()
+            data_copy.requires_grad = True
+            output = self.model(data_copy)
+            loss = F.cross_entropy(output, target)
+            loss.backward()
+            data_grad = data_copy.grad.detach()
+            sign_data_grad = data_grad.sign()
+            perturbed_image = data + self.epsilon*sign_data_grad
+            perturbed_image = torch.clamp(perturbed_image, self.min, self.max)
+            return perturbed_image
+        else:
+            rand_perturb = torch.FloatTensor(data.shape).uniform_(
+                -self.epsilon, self.epsilon).to(self.device)
+            x = data + rand_perturb
+            x.clamp_(self.min, self.max)
+            x.requires_grad = True
+            self.model.eval()
+            outputs = self.model(x)
+            loss = F.cross_entropy(outputs, target)
+            loss.backward()
+            grad = x.grad.detach()
+            x.data += self.alpha * torch.sign(grad.data)
+            # Stay in L-inf of epsilon
+            max_x = data + self.epsilon
+            min_x = data - self.epsilon
+            x = torch.max(torch.min(x, max_x), min_x)
+            return x.clamp_(self.min, self.max)
