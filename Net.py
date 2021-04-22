@@ -24,7 +24,7 @@ class Net(nn.Module):
         return x
 
 
-
+## Architecture for Distilled neural net : half of the parameters
 class NetF1(nn.Module):
     def __init__(self):
         super().__init__()

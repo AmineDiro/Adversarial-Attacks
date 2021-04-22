@@ -4,9 +4,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import matplotlib.pyplot as plt
-from LBFGS import LBFGSAttack
-from FGSM import FGSMAttack
-from VanillaGradient import VanillaGradientAttack
+from Attacks.LBFGS import LBFGSAttack
+from Attacks.FGSM import FGSMAttack
+from Attacks.V import VanillaGradientAttack
 
 
 class Tester():
