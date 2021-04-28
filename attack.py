@@ -204,7 +204,6 @@ def test_LBFGS_mnist(model, device, testloader, nb_exemples=1000, T=1):
         while n.item() == target.item():
             n = torch.randint(low=0, high=9, size=(1,))
 
-        # TODO : test Generate Adversarial exemple using LBFGS
         lbfgs(data, target=torch.randint(low=0, high=9, size=(1,)))
         adv = lbfgs._adv
         output = lbfgs._output
