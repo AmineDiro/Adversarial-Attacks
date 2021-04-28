@@ -70,7 +70,6 @@ def test_vanilla_mnist(model, device, testloader, lmd,  T=1):
     return final_acc, adv_examples, proba_distrib_adv
 
 
-
 ############### Implementing FGSM ############### 
 
 def test_fgsm_mnist(model, device, test_loader, epsilon,  T=1):
@@ -226,52 +225,7 @@ def test_LBFGS_mnist(model, device, testloader, nb_exemples=1000, T=1):
     return final_acc, adv_examples, proba_orig, proba_adv
 
 
-# def test_LBFGS_binary_mnist(model, device, testloader, lmd, threshold=0.5):
-#     correct = 0
-#     adv_examples = []
-#     loop = tqdm(testloader, desc='Lambda = {}'.format(lmd))
-#     for i, (data, target) in enumerate(loop):
-#         if i == 1000:
-#             break
-#         data = data.to(device)
-#         target = target.to(target)
-#         data.requires_grad = True
-#         # Get initial label
-#         data_binary = (data > threshold)*1
-#         # Binary segment original input
-#         output = model(data_binary.to(torch.float32))
-#         # Predict class of original input
-#         # index of the max log-probability
-#         init_pred = output.max(1, keepdim=True)[1]
-#         if init_pred.item() != target.item():
-#             # Bad exemple - continue
-#             continue
-#         # Generate target exemple where target is  different
-#         label_adv = torch.tensor(0)
-#         while label_adv.item() == target.item():
-#             label_adv = torch.randint(low=0, high=9, size=(1,))
-#         # Generate Adversarial exemple
-#         adv = target_adversarial(model, data, device, n=label_adv, lmd=lmd)
-#         # Binary threashold adversary
-#         adv_binary = (adv > threshold)*1
-#         # Get model output of DNN
-#         output = model(adv_binary.to(torch.float32))
-#         final_pred = output.max(1, keepdim=True)[1]
-#         # If same label changed
-#         if final_pred.item() == target.item():
-#             correct += 1
-#         else:
-#             if len(adv_examples) < 5:
-#                 adversary = adv_binary.squeeze().detach().cpu().numpy()
-#                 original = data.squeeze().detach().cpu().numpy()
-#                 adv_examples.append(
-#                     (original, adversary, init_pred, final_pred))
-#     final_acc = correct / 1000
-#     return final_acc, adv_examples
-
-
-
-# #### CNN Imagenet test
+############### BLACKBOX : CNN Imagenet test ###############
 def generate_adv_imagenet(model, device, testloader, epsilon):
     correct = 0
     adv_examples = []

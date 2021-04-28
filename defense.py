@@ -15,23 +15,6 @@ from Attacks.VanillaGradient import VanillaGradientAttack
 from utils import * 
 
 
-
-# def validation(model, testloader, device, T=4):
-#     correct = 0
-#     total = 0
-#     model.eval()
-#     with torch.no_grad():
-#         for inputs, labels in tqdm(testloader):
-#             inputs = inputs.to(device)
-#             labels = labels.to(device)
-#             outputs = model(inputs)
-#             outputs = F.log_softmax(outputs / T, dim=1)
-#             _, predicted = torch.max(outputs.data, 1)
-#             total += labels.size(0)
-#             correct += (predicted == labels).sum().item()
-#     accuracy = correct / total
-#     return accuracy
-
 def fit(model, device, criterion, optimizer, train_loader, val_loader=None, T=1, epochs=10):
     train_loss =0
     correct =0
