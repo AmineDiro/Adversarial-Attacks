@@ -8,43 +8,44 @@ Implementation of adversarial attack on different deep NN classifiers, the attac
 **ATTACKS :**
 * LBFGS Attack : [Explaining and harnessing adversarial examples](https://arxiv.org/pdf/1412.6572v3.pdf).
 * FGSM : [Intriguing properties of neural networks](https://arxiv.org/abs/1312.6199).
-*  [Adversarial Attacks and Defences Competition](https://arxiv.org/pdf/1804.00097.pdf).
+* Vanilla Attack :  
+
 
 
 **DEFENSES :**
 * Distilled neural network : [Distillation as a Defense to Adversarial
 Perturbations against Deep Neural Networks](https://arxiv.org/pdf/1511.04508.pdf)
-* FGSM Training ?
-* 
+* Adversarial Training
+* Binary thresholding 
 
  
-## Paper structure
-- Introduction to adversarial exemples : Robustness of neural networks
-    - Understanding Adversarial Examples : An adversarial example is an instance with small, intentional feature perturbations that cause a machine learning model to make a false prediction. Adversarial examples are counterfactual examples with the aim to deceive the model.
-    - From FGSM paper Adversarial examples aren’t a product of overfitting, but rather of high-dimensional input and the internal linearity of modern models => FGSM paper
-    - Manifold hypothesis : 
-        * there is only a relatively small region of a very high dimensional space in which inputs exist
-        * property of adversarial examples is transferability :  adversarial examples generated for one model will typically work on another. 
+Project Organization
+-----------------------
 
-- Explain white vs black box attacks
-    * white box: Atatcker has full access to model, architecture, inputs, outputs, and weights
-    * black box : Attacker only has access to the inputs and outputs of the model
-- Implementation  :  defenses vs attacks
-    * Attacks : 
-        * Vanilla SGD attack
-        * LBFGS attack
-        * FGSM Attack
-        * ATN ?? 
-        * Get exemples and accuracy and mean proba results
-    * Defense : 
-        * Binary threashold : results
-        * Neural network distillation
-- Tests : 
-    - Generalization across different models
-    - Robustess of attacks and defenses
+    ├── Adversarial_blackbox_attacks.ipynb  <- Notebook for testing BB attacks>
+    ├── Adversarial_whitebox_attacks.ipynb  <- Notebook for testing WB attacks>
+    ├── attack.py                           <- Test functions of attacks>
+    ├── Attacks                             
+    │   ├── FGSM.py                         <- FGSM fast attack class>
+    │   ├── LBFGS.py                        <- L-BFGS attack class >
+    │   └── VanillaGradient.py              <- Vanilla attack class >      
+    ├── Defense.ipynb                       <- Notebook for testing defenses>
+    ├── defense.py                          <- Test functions of defense>
+    ├── imagenet_classes.txt
+    ├── Net.py                              <- Architectures of models >
+    ├── Results                             <- Resulting images and accuracies >
+    ├── utils.py                            <- Plotting functions >
+    └── weights                             <- Weights for pretrained models>
 
-## TODO : 
-* Refactor:
-    - Vanillagradient into class
-    - Tester class for attacks
-    
+
+
+
+Our work was inspired by [Adversarial Attacks and Defences Competition](https://arxiv.org/pdf/1804.00097.pdf), we implemented 3 differents attack vectors and 3 matching defenses.  
+
+- The notebook `Adversarial_whitebox_attacks.ipynb`  : We first implemented the attacks on the architecture `Net.py` with MNIST dataset, the notebook show the impact of our different attacks  on the accuracy of the model
+- The notebook `Defense.ipynb` : This notebook showcases the robustness of 3 different defenses against the attacks. You'll find the accuracy measure of the model when adding the defense. The `L-BFGS` attack was left out of the testing because the high computationnal demand of the attack.
+- The notebook `Adversarial_blackbox_attacks.ipynb` :  One very interesting feature of adversarial examples is their ability to attack different models. We tested this unique property by attack a model based on image generated froma  different one. We used a more complex dataset (ants/bees) of 3 channels images  from this test. 
+    - **Note** the dataset is available to download by running :
+        ```bash 
+            wget https://download.pytorch.org/tutorial/hymenoptera_data.zip
+        ```
