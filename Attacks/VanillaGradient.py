@@ -9,7 +9,7 @@ import logging
 
 class VanillaGradientAttack():
     """
-    Class Vanilla attack 
+    Class Vanilla attack . Gradient descent on random noise to get close to the tagret image and label.
     """
 
     def __init__(self, model, device, epochs=100, eta=0.5, lmd=0.05, T=1, targeted=True):

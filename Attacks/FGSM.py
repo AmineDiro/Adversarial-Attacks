@@ -9,8 +9,7 @@ import logging
 
 class FGSMAttack():
     """
-    Class LBFGS attack L-BFGS-B to minimize the cross-entropy and the distance between the
-    original and the adversary.
+    Class FGSM attack. attacks by taking the direction to maximlize the linearized loss. 
     """
 
     def __init__(self, model, device, epsilon, random=False, alpha=None,T=1):
