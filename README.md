@@ -47,7 +47,7 @@ Our work was inspired by [Adversarial Attacks and Defences Competition](https://
     - [![Adversarial_whitebox_attacks](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1J86NJTDyyAZq4Y6zR7__n5ACw4OMWAdf?usp=sharing) 
 - `Defense.ipynb` : This notebook showcases the robustness of 3 different defenses against the attacks. You'll find the accuracy measure of the model when adding the defense. The `L-BFGS` attack was left out of the testing because the high computational cost of the attack.
     - [![](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1CVC08o4i0GKCbZzjH5MexZKsNp_Vd8mD?usp=sharing)
-- `Adversarial_blackbox_attacks.ipynb` :  One very interesting feature of adversarial examples is their ability to attack different models. We tested this unique property by attack a model based on image generated froma  different one. We used a more complex dataset (ants/bees) of 3 channels images  from this test. 
+- `Adversarial_blackbox_attacks.ipynb` :  One very interesting feature of adversarial examples is their ability to transfer to different models. We tested this unique property by attack a model based on image generated froma  different one. We used a more complex dataset (ants/bees) of 3 channels images  from this test. 
     - [![](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1z5b1yvpLm7zaBK0Oz4otqQ3zWDyPlM42?usp=sharing) 
     - **Note** the dataset is available to download by running :
         ```bash 
