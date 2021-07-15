@@ -3,8 +3,9 @@
 
 
 # Adversarial examples
-
+![png](Results/Exemples FGSM mnist.png)
 Implementation of adversarial attack on different deep NN classifiers, the attacks are base on the algorithms in the papers :
+
 
 **ATTACKS :**
 * LBFGS Attack : [Explaining and harnessing adversarial examples](https://arxiv.org/pdf/1412.6572v3.pdf).
