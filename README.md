@@ -3,8 +3,9 @@
 
 
 # Adversarial examples
-
-<img src="https://github.com/AmineDiro/Adversarial-Attacks/blob/d3cdd18e620cc17649eff855a5828c0cde1249c9/Results/Exemples%20FGSM%20mnist.png" alt="drawing" width="200"/>
+<p align="center">
+<img src="https://github.com/AmineDiro/Adversarial-Attacks/blob/d3cdd18e620cc17649eff855a5828c0cde1249c9/Results/Exemples%20FGSM%20mnist.png" alt="drawing" width="400"/>
+</p>
 
 Implementation of adversarial attack on different deep NN classifiers, the attacks are base on the algorithms in the papers :
 
